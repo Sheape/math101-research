@@ -1,0 +1,13 @@
+.R*
+*.xlsx
+*.pdf
+*.Rproj
+*.cpg
+*.dbf
+*.prj
+*.qmd
+*.shp
+*.shx
+*.csv
+*.qmd
+.Rproj.user
