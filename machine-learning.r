@@ -1,4 +1,4 @@
-library(openxlsx)
+library(readxl)
 library(dplyr)
 library(stringr)
 
@@ -14,7 +14,7 @@ import_year <- function(data, year) {
 }
 
 #### Preprocessing ####
-typhoid11 <- import_year(abd, "2011")
+typhoid11 <- import_year(abd, "2013")
 ## FIXME: Convert numeric into Date
 ## typhoid11[, 3:4] <- as.Date(typhoid11[, 3:4])
 cleanup_data <- function(col, patterns, replacements) {
