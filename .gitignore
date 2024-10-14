@@ -11,3 +11,6 @@
 *.csv
 *.qmd
 .Rproj.user
+*.zip
+*.png
+*.qgs

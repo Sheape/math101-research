@@ -131,4 +131,3 @@ print(unique(not_typhoid11$Barangay))
 
 View(not_typhoid11)
 warnings()
-## print(toupper(geodata$ADM4_EN))
