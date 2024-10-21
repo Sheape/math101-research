@@ -48,7 +48,9 @@ patterns <- toupper(c(
     "^Camp$",
     "^Navy Base$",
     "^Atab$",
-    "^Roman Ayson$"
+    "^Roman Ayson$",
+    "^Happy Homes-Lucban$",
+    "^Dominican- Mirador Hill$"
 ))
 
 replacements <- toupper(c(
@@ -96,7 +98,9 @@ replacements <- toupper(c(
     "City Camp Proper",
     "Saint Joseph Village",
     "Santo Tomas Proper",
-    "Campo Filipino"
+    "Campo Filipino",
+    "Happy Homes-Lucban",
+    "Dominican Hill-Mirador"
 ))
 
 proper_brgy_names <- geodata$ADM4_EN
