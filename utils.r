@@ -17,7 +17,11 @@ rename_barangays <- function(col, patterns, replacements) {
     return(cleaned_col)
 }
 
-count_cases <- function(cols, init_values, brgy_list, original_df) {
+count_cases <- function(cols,
+                        init_values,
+                        brgy_list,
+                        proper_brgy_list,
+                        original_df) {
     result_df <- data.frame(matrix(ncol = length(cols), nrow = 0))
     colnames(result_df) <- cols
 
@@ -29,9 +33,18 @@ count_cases <- function(cols, init_values, brgy_list, original_df) {
 
         for (j in seq_len(nrow(week_df))) {
             if (week_df[j, "CASECLASS"] != "SUSPECT") {
+                # For debugging only
+                index <- match(
+                    week_df[j, "Barangay"],
+                    toupper(proper_brgy_list)
+                )
+                print(sprintf("Week: %d", i))
                 print(week_df[j, "Barangay"])
-                index <- match(week_df[j, "Barangay"], toupper(brgy_list))
-                print(index)
+                print(sprintf("Index: %d", index))
+                if (is.na(index)) {
+                    print(week_df[j, "Barangay"])
+                    print(index)
+                }
 
                 if (!is.na(index)) {
                     row[index + 1] <- row[index + 1] + 1
