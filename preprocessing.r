@@ -1,6 +1,7 @@
 library(dplyr)
 
 source("utils.r")
+source("cases.r")
 source("labels.r")
 
 # Load the data
@@ -41,6 +42,8 @@ for (i in 11:18) {
 
   cleaned_typhoid <- rename_barangays(typhoid$Barangay, patterns, replacements)
   typhoid$Barangay <- cleaned_typhoid
+  cleaned_labresults <- rename_labresults(typhoid$LabResult)
+  typhoid$LabResult <- cleaned_labresults
 
   cleaned_abd <- rename_barangays(abd$Barangay, patterns, replacements)
   abd$Barangay <- cleaned_abd
@@ -54,16 +57,8 @@ for (i in 11:18) {
   df_cleaned_abd <- abd[
     cleaned_abd %in% toupper(geodata$ADM4_EN),
   ]
-  df_cleaned_abd <- df_cleaned_abd[!is.na(df_cleaned_abd$Barangay), ]
 
-  cases_typhoid <- count_cases(
-    "typhoid",
-    column_names,
-    init_values,
-    short_brgy_names,
-    proper_brgy_names,
-    df_cleaned_typhoid
-  )
+  df_cleaned_abd <- df_cleaned_abd[!is.na(df_cleaned_abd$Barangay), ]
 
   assign(paste0("df_cleaned_typhoid", i), df_cleaned_typhoid)
   assign(paste0("df_cleaned_abd", i), df_cleaned_abd)
@@ -86,54 +81,46 @@ for (i in 11:18) {
     df_cleaned_abd
   )
 
-  assign(paste0("typhoid", i, "_df_cases"), typhoid_cases)
-  assign(paste0("abd", i, "_df_cases"), abd_cases)
-
-  # print(paste0("Typhoid ", i))
-  # print(sum(rowSums(df_cleaned_typhoid[, -1])))
-  # print(paste0("ABD ", i))
-  # print(sum(rowSums(df_cleaned_abd[, -1])))
-
-  # View(not_typhoid)
-  # View(not_abd)
-  # View(df_cleaned_typhoid)
-  # View(df_cleaned_abd)
+  assign(paste0("typhoid", i, "_cases"), typhoid_cases)
+  assign(paste0("abd", i, "_cases"), abd_cases)
 }
 
+preproc_typhoid11 <- parse_table(df_cleaned_typhoid11, "typhoid", 2011)
+
 # Legacy
-## typhoid11 <- convert_dates(typhoid11)
+typhoid11 <- convert_dates(typhoid11)
 
-## cleaned_typhoid11 <- rename_barangays(typhoid11$Barangay, patterns, replacements)
-## typhoid11$Barangay <- cleaned_typhoid11
-## cleaned_labresults11 <- rename_labresults(typhoid11$LabResult)
-## typhoid11$LabResult <- cleaned_labresults11
+cleaned_typhoid11 <- rename_barangays(typhoid11$Barangay, patterns, replacements)
+typhoid11$Barangay <- cleaned_typhoid11
+cleaned_labresults11 <- rename_labresults(typhoid11$LabResult)
+typhoid11$LabResult <- cleaned_labresults11
 
-## df_cleaned_typhoid11 <- typhoid11[
-##   cleaned_typhoid11 %in% toupper(geodata$ADM4_EN),
-## ]
+df_cleaned_typhoid11 <- typhoid11[
+  cleaned_typhoid11 %in% toupper(geodata$ADM4_EN),
+]
 
-## df_cleaned_typhoid11 <- df_cleaned_typhoid11[!is.na(df_cleaned_typhoid11$Barangay), ]
+df_cleaned_typhoid11 <- df_cleaned_typhoid11[!is.na(df_cleaned_typhoid11$Barangay), ]
 
-## not_typhoid11 <- typhoid11[
-##   !(cleaned_typhoid11 %in% toupper(geodata$ADM4_EN)),
-## ]
+not_typhoid11 <- typhoid11[
+  !(cleaned_typhoid11 %in% toupper(geodata$ADM4_EN)),
+]
 
 
 
-## # #### Typhoid 2011 ####
-## column_names <- c("MorbidityWeek", short_brgy_names)
-## init_values <- numeric(130)
+#### Typhoid 2011 ####
+column_names <- c("MorbidityWeek", short_brgy_names)
+init_values <- numeric(130)
 
-## typhoid11_df_cases <- count_cases(
-##   "typhoid",
-##   column_names,
-##   init_values,
-##   short_brgy_names,
-##   proper_brgy_names,
-##   df_cleaned_typhoid11
-## )
+typhoid11_df_cases <- count_cases(
+  "typhoid",
+  column_names,
+  init_values,
+  short_brgy_names,
+  proper_brgy_names,
+  df_cleaned_typhoid11
+)
 
-## row_sum <- rowSums(typhoid11_df_cases[, -1])
-## print(row_sum)
-## print(sum(row_sum))
-## View(typhoid11_df_cases)
+row_sum <- rowSums(typhoid11_df_cases[, -1])
+print(row_sum)
+print(sum(row_sum))
+View(typhoid11_df_cases)

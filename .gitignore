@@ -1,4 +1,5 @@
 .R*
+*.Rmd
 *.xlsx
 *.pdf
 *.Rproj

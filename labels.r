@@ -2,6 +2,14 @@
 # barangay.
 
 geodata <- read.csv("geodata/baguio_city_geodata.csv")
+population_data <- read.csv("geodata/baguio_city_population.csv")
+weather_data <- read.csv("geodata/baguio_city_weather_data.csv")
+
+population_data$X2020 <- as.integer(gsub(
+  ",",
+  "",
+  population_data$X2020
+))
 
 patterns <- toupper(c(
   "^Sto Tomas Proper$",
