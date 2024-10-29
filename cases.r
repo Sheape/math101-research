@@ -3,139 +3,143 @@ library(spatstat.geom)
 library(spatstat.random)
 library(dplyr)
 library(tidyr)
+library(purrr)
 library(zoo)
 
 source("labels.r")
 
-add_case <- function(df, idx, row, match_list) {
-  index <- match(
-    df[idx, "Barangay"],
-    toupper(match_list)
-  )
-
-  if (!is.na(index)) {
-    row[index + 1] <- row[index + 1] + 1
-  }
-
-  return(row)
+match_cases <- function(df) {
+  df$Brgy <- population_data$BRGY[match(df$Brgy, toupper(population_data$BRGY))]
+  return(df)
 }
 
-count_cases <- function(
-    disease_type,
-    cols,
-    init_values,
-    brgy_list,
-    proper_brgy_list,
-    original_df) {
-  result_df <- data.frame(matrix(ncol = length(cols), nrow = 0))
-  colnames(result_df) <- cols
+count_typhoid_cases <- function(typhoid_df) {
+  cleaned_df <- cleanup_df(typhoid_df)
+  result_df <- cleaned_df %>%
+    mutate(LabResult = case_when(
+      grepl("POSITIVE", toupper(LabResult), ignore.case = TRUE) ~ "POSITIVE",
+      TRUE ~ LabResult
+    )) %>%
+    mutate(CaseClass = CASECLASS) %>%
+    select(Week, Brgy, LabResult, CaseClass) %>%
+    filter(Brgy %in% toupper(geodata$ADM4_EN)) %>%
+    group_by(Brgy, Week, .drop = FALSE) %>%
+    summarise(Cases = sum(
+      toupper(CaseClass) == "CONFIRMED" |
+        (toupper(CaseClass) == "PROBABLE" & toupper(LabResult) == "POSITIVE"),
+      na.rm = TRUE
+    )) %>%
+    ungroup() %>%
+    arrange(Week)
+  result_df <- match_cases(result_df)
+  return(result_df)
+}
 
-  for (i in 1:52) {
-    week_df <- original_df[original_df$MorbidityWeek == i, ]
-
-    row <- init_values
-    row[1] <- i
-
-    for (j in seq_len(nrow(week_df))) {
-      if (toupper(disease_type) == "TYPHOID") {
-        if (is.na(week_df[j, "CASECLASS"])) {
-          next
-        }
-        if (week_df[j, "CASECLASS"] == "CONFIRMED" ||
-          (week_df[j, "CASECLASS"] == "PROBABLE" &&
-            week_df[j, "LabResult"] == "POSITIVE")) {
-          row <- add_case(week_df, j, row, proper_brgy_list)
-        }
-      } else if (toupper(disease_type) == "ABD") {
-        if (toupper(week_df[j, "StoolCulture"]) == "POSITIVE") {
-          row <- add_case(week_df, j, row, proper_brgy_list)
-        }
-      }
-    }
-
-    result_df <- rbind(result_df, row)
-    colnames(result_df) <- cols
-  }
-
+count_abd_cases <- function(abd_df) {
+  cleaned_df <- cleanup_df(abd_df)
+  result_df <- cleaned_df %>%
+    select(Week, Brgy, StoolCulture) %>%
+    filter(Brgy %in% toupper(geodata$ADM4_EN)) %>%
+    group_by(Brgy, Week, .drop = FALSE) %>%
+    summarise(Cases = sum(
+      toupper(StoolCulture) == "POSITIVE"
+    )) %>%
+    ungroup() %>%
+    arrange(Week)
+  result_df <- match_cases(result_df)
   return(result_df)
 }
 
 approx_population <- function(population_data) {
   population_df <- population_data %>%
-    select(brgy = "BRGY", X2010:X2022) %>%
+    select(Brgy = "BRGY", X2010:X2022) %>%
     pivot_longer(
       cols = X2010:X2022,
-      names_to = "year",
-      values_to = "population"
+      names_to = "Year",
+      values_to = "Population"
     ) %>%
-    mutate(year = as.numeric(gsub("X", "", year)), week = 1) %>%
-    select(year, week, population, brgy) %>%
-    group_by(brgy) %>%
-    filter(brgy != "" & brgy != " ") %>%
-    complete(year = 2010:2022, week = 1:52) %>%
-    mutate(population = zoo::na.approx(population, rule = 2, na.rm = FALSE)) %>%
-    mutate(population = ceiling(population)) %>%
+    mutate(Year = as.numeric(gsub("X", "", Year)), Week = 1) %>%
+    select(Year, Week, Population, Brgy) %>%
+    group_by(Brgy) %>%
+    filter(Brgy != "" & Brgy != " ") %>%
+    complete(Year = 2010:2022, Week = 1:52) %>%
+    mutate(Population = zoo::na.approx(Population, rule = 2, na.rm = FALSE)) %>%
+    mutate(Population = ceiling(Population)) %>%
     ungroup()
   return(population_df)
 }
 
+calc_population_density <- function(population, brgy_name) {
+  index <- match(
+    brgy_name,
+    geodata$ADM4_EN
+  )
 
-get_week_population <- function(brgy_name, year, week, interpolated_pop) {
-  weekly_pop <- interpolated_pop %>%
-    filter(brgy == brgy_name, year == year, week == week) %>%
-    pull(population)
-  return(weekly_pop)
-}
+  area <- geodata[index, "AREA_SQKM"]
 
-calc_population_density <- function(population, area) {
   return(population / area)
 }
 
-calc_x_y <- function(short_brgy_name, geodata) {
+calc_x_y <- function(brgy_name) {
   index <- match(
-    short_brgy_name,
-    geodata$ADM4_SHORT
+    brgy_name,
+    geodata$ADM4_EN
   )
 
   wkt_str <- geodata[index, "WKT"]
   multi_polygon <- st_as_sfc(wkt_str)
   sampling_region <- as.owin(multi_polygon)
-  random_point <- runifpoint(1, win = sampling_region)
-  coords <- c(random_point$x, random_point$y)
-  return(coords)
+  set.seed(112524)
+  random_points <- runifpoint(416, win = sampling_region)
+  return(random_points)
 }
 
-parse_table <- function(df, disease_type, year) {
-  pop_data <- approx_population(population_data)
-  cols <- c(
-    "Year", "Week", "DiseaseType", "X", "Y", "Cases", "Rainfall",
-    "TMean", "Humidity", "WindSpeed", "Population",
-    "PopulationDensity"
-  )
-  result_df <- data.frame(matrix(ncol = 12, nrow = 0))
+generate_rand_coords <- function(base_df) {
+  rand_coords <- base_df %>%
+    filter(Year <= 2018 & Year >= 2011) %>%
+    group_by(Brgy) %>%
+    summarise(RandCoords = list(calc_x_y(Brgy)), .groups = "drop") %>%
+    mutate(
+      X = map(RandCoords, ~ as.data.frame(.) %>% select(x)),
+      Y = map(RandCoords, ~ as.data.frame(.) %>% select(y))
+    ) %>%
+    unnest(c(X, Y)) %>%
+    select(-RandCoords, -Brgy)
+  return(rand_coords)
+}
 
-  colnames(result_df) <- cols
-  for (i in 1:52) {
-    week_df <- df[df$MorbidityWeek == i, ]
-    for (j in seq_len(2:ncol(week_df))) {
-      row <- c(
-        year, i, disease_type, 0, 0, 0, 0, 0, 0, 0, 0
-      )
-      row[4:5] <- calc_x_y(week_df$Barangay[j], geodata)
-      row[6] <- sum(week_df[j])
-      row[7] <- weather_data$Rainfall[weather_data$MW == i]
-      row[8] <- weather_data$TMEAN[weather_data$MW == i]
-      row[9] <- weather_data$RH[weather_data$MW == i]
-      row[10] <- weather_data$WIND_SPEED[weather_data$MW == i]
-      row[11] <- get_week_population(
-        week_df$Barangay[j],
-        year,
-        i,
-        pop_data
-      )
-      row[12] <- calc_population_density(row[11], 0.5)
-      result_df <- rbind(result_df, row)
-      colnames(result_df) <- cols
-    }
-  }
+preprocess_df2 <- function(base_df, cases_df, disease_type, rand_coords) {
+  result_df <- base_df %>%
+    mutate(DiseaseType = disease_type) %>%
+    filter(Year <= 2018 & Year >= 2011) %>%
+    left_join(cases_df, by = c(
+      "Brgy" = "Brgy",
+      "Week" = "Week",
+      "Year" = "Year"
+    )) %>%
+    mutate(Cases = replace_na(Cases, 0)) %>%
+    left_join(weather_data, by = c("Year" = "Year", "Week" = "MW")) %>%
+    mutate(TMean = TMEAN, Humidity = RH, WindSpeed = WIND_SPEED) %>%
+    bind_cols(rand_coords) %>%
+    mutate(X = x, Y = y) %>%
+    rowwise() %>%
+    mutate(
+      PopulationDensity = calc_population_density(Population, Brgy)
+    ) %>%
+    ungroup() %>%
+    select(
+      Year,
+      Week,
+      DiseaseType,
+      X,
+      Y,
+      Cases,
+      Rainfall,
+      TMean,
+      Humidity,
+      WindSpeed,
+      Population,
+      PopulationDensity
+    )
+  return(result_df)
 }

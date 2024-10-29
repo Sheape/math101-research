@@ -1,6 +1,8 @@
 # This file is associated with replacements, patterns, and names for each
 # barangay.
 
+typhoid <- "Typhoid Fever (2011 - 2018).xlsx"
+abd <- "Acute Bloody Diarrhea (2011 - 2018).xlsx"
 geodata <- read.csv("geodata/baguio_city_geodata.csv")
 population_data <- read.csv("geodata/baguio_city_population.csv")
 weather_data <- read.csv("geodata/baguio_city_weather_data.csv")
