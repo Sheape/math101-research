@@ -50,6 +50,43 @@ count_abd_cases <- function(abd_df) {
   return(result_df)
 }
 
+count_typhoid_cases.monthly <- function(typhoid_df) {
+  cleaned_df <- cleanup_df(typhoid_df, is_monthly = TRUE)
+  result_df <- cleaned_df %>%
+    mutate(LabResult = case_when(
+      grepl("POSITIVE", toupper(LabResult), ignore.case = TRUE) ~ "POSITIVE",
+      TRUE ~ LabResult
+    )) %>%
+    mutate(CaseClass = CASECLASS) %>%
+    select(Month, Brgy, LabResult, CaseClass) %>%
+    filter(Brgy %in% toupper(geodata$ADM4_EN)) %>%
+    group_by(Brgy, Month, .drop = FALSE) %>%
+    summarise(Cases = sum(
+      toupper(CaseClass) == "CONFIRMED" |
+        (toupper(CaseClass) == "PROBABLE" & toupper(LabResult) == "POSITIVE"),
+      na.rm = TRUE
+    )) %>%
+    ungroup() %>%
+    arrange(Month)
+  result_df <- match_cases(result_df)
+  return(result_df)
+}
+
+count_abd_cases.monthly <- function(abd_df) {
+  cleaned_df <- cleanup_df(abd_df, is_monthly = TRUE)
+  result_df <- cleaned_df %>%
+    select(Month, Brgy, StoolCulture) %>%
+    filter(Brgy %in% toupper(geodata$ADM4_EN)) %>%
+    group_by(Brgy, Month, .drop = FALSE) %>%
+    summarise(Cases = sum(
+      toupper(StoolCulture) == "POSITIVE"
+    )) %>%
+    ungroup() %>%
+    arrange(Month)
+  result_df <- match_cases(result_df)
+  return(result_df)
+}
+
 approx_population <- function(population_data) {
   population_df <- population_data %>%
     select(Brgy = "BRGY", X2010:X2022) %>%
@@ -69,44 +106,25 @@ approx_population <- function(population_data) {
   return(population_df)
 }
 
-calc_population_density <- function(population, brgy_name) {
-  index <- match(
-    brgy_name,
-    geodata$ADM4_EN
-  )
-
-  area <- geodata[index, "AREA_SQKM"]
-
-  return(population / area)
-}
-
-calc_x_y <- function(brgy_name) {
-  index <- match(
-    brgy_name,
-    geodata$ADM4_EN
-  )
-
-  wkt_str <- geodata[index, "WKT"]
-  multi_polygon <- st_as_sfc(wkt_str)
-  sampling_region <- as.owin(multi_polygon)
-  set.seed(112524)
-  random_points <- runifpoint(416, win = sampling_region)
-  return(random_points)
-}
-
-generate_rand_coords <- function(base_df) {
-  rand_coords <- base_df %>%
-    filter(Year <= 2018 & Year >= 2011) %>%
-    group_by(Brgy) %>%
-    summarise(RandCoords = list(calc_x_y(Brgy)), .groups = "drop") %>%
-    mutate(
-      X = map(RandCoords, ~ as.data.frame(.) %>% select(x)),
-      Y = map(RandCoords, ~ as.data.frame(.) %>% select(y))
+approx_population.monthly <- function(population_data) {
+  population_df <- population_data %>%
+    select(Brgy = "BRGY", X2010:X2022) %>%
+    pivot_longer(
+      cols = X2010:X2022,
+      names_to = "Year",
+      values_to = "Population"
     ) %>%
-    unnest(c(X, Y)) %>%
-    select(-RandCoords, -Brgy)
-  return(rand_coords)
+    mutate(Year = as.numeric(gsub("X", "", Year)), Month = 1) %>%
+    select(Year, Month, Population, Brgy) %>%
+    group_by(Brgy) %>%
+    filter(Brgy != "" & Brgy != " ") %>%
+    complete(Year = 2010:2022, Month = 1:12) %>%
+    mutate(Population = zoo::na.approx(Population, rule = 2, na.rm = FALSE)) %>%
+    mutate(Population = ceiling(Population)) %>%
+    ungroup()
+  return(population_df)
 }
+
 
 preprocess_df2 <- function(base_df, cases_df, disease_type, rand_coords) {
   result_df <- base_df %>%
@@ -138,8 +156,49 @@ preprocess_df2 <- function(base_df, cases_df, disease_type, rand_coords) {
       TMean,
       Humidity,
       WindSpeed,
-      Population,
       PopulationDensity
-    )
+    ) %>%
+    arrange(Year, Week)
+  return(result_df)
+}
+
+preprocess_df2.monthly <- function(
+    base_df,
+    cases_df,
+    disease_type,
+    rand_coords,
+    weather_data) {
+  result_df <- base_df %>%
+    mutate(DiseaseType = disease_type) %>%
+    filter(Year <= 2018 & Year >= 2011) %>%
+    left_join(cases_df, by = c(
+      "Brgy" = "Brgy",
+      "Month" = "Month",
+      "Year" = "Year"
+    )) %>%
+    mutate(Cases = replace_na(Cases, 0)) %>%
+    left_join(weather_data, by = c("Year" = "YEAR", "Month" = "MONTH")) %>%
+    mutate(Humidity = RH) %>%
+    bind_cols(rand_coords) %>%
+    mutate(X = x, Y = y) %>%
+    rowwise() %>%
+    mutate(
+      PopulationDensity = calc_population_density(Population, Brgy)
+    ) %>%
+    ungroup() %>%
+    select(
+      Year,
+      Month,
+      DiseaseType,
+      X,
+      Y,
+      Cases,
+      Rainfall,
+      TMean,
+      Humidity,
+      WindSpeed,
+      PopulationDensity
+    ) %>%
+    arrange(Year, Month)
   return(result_df)
 }
