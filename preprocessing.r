@@ -9,6 +9,7 @@ typhoid <- "Typhoid Fever (2011 - 2018).xlsx"
 abd <- "Acute Bloody Diarrhea (2011 - 2018).xlsx"
 geodata <- read.csv("geodata/baguio_city_geodata.csv")
 
+<<<<<<< Updated upstream
 
 #### Preprocessing ####
 typhoid11 <- import_year(typhoid, "2011")
@@ -28,13 +29,23 @@ abd15 <- import_year(abd, "2015")
 abd16 <- import_year(abd, "2016")
 abd17 <- import_year(abd, "2017")
 abd18 <- import_year(abd, "2018")
+=======
+base_df <- approx_population.monthly.district(population_data)
+rand_coords_df <- generate_rand_coords(base_df, is_monthly = TRUE)
+monthly_weather_df <- d2m_weather(daily_weather_data)
+>>>>>>> Stashed changes
 
 for (i in 11:18) {
     typhoid <- get(paste0("typhoid", i))
     abd <- get(paste0("abd", i))
 
+<<<<<<< Updated upstream
     typhoid <- convert_dates(typhoid)
     abd <- convert_dates(abd)
+=======
+  typhoid_cases <- count_typhoid_cases.monthly.district(typhoid_df)
+  abd_cases <- count_abd_cases.monthly.district(abd_df)
+>>>>>>> Stashed changes
 
     cleaned_typhoid <- rename_barangays(typhoid$Barangay, patterns, replacements)
     typhoid$Barangay <- cleaned_typhoid

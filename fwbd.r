@@ -1,19 +1,25 @@
 # Install packages
 # install.packages("readxl")
 # install.packages("dplyr")
-# install.packages("tidygeocoder")
+#install.packages("tidygeocoder")
 
 # Load Readxl Library
-library(readxl)
+# library(readxl)
 # library(dplyr)
-# library(tidygeocoder)
-library(ggplot2)
+#library(tidygeocoder)
+#library(ggplot2)
 
 options(tibble.width = Inf)
 
+<<<<<<< Updated upstream
 get_cases_per_year = function(file_path) {
     excel_file <- file_path
     sheets <- excel_sheets(excel_file)
+=======
+get_cases_per_year <- function(file_path) {
+  excel_file <- file_path
+  sheets <- excel_sheets(excel_file) #what this is
+>>>>>>> Stashed changes
 
     cases_per_year <- data.frame(
         Sheet = character(),
