@@ -15,3 +15,5 @@
 *.zip
 *.png
 *.qgs
+out/
+azureml/
