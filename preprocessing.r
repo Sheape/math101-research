@@ -9,8 +9,10 @@ source("labels.r")
 # Load the data
 # MAKE SURE TO CREATE A COPY OF THE FILES FIRST
 
-base_df <- approx_population.monthly(population_data)
-rand_coords_df <- generate_rand_coords(base_df, is_monthly = TRUE)
+approx_df <- approx_population.monthly(population_data)
+base_df <- population.district(approx_df)
+rand_coords_df <- generate_rand_coords.district()
+area_sqkm_df <- get_area_sqkm.district()
 monthly_weather_df <- d2m_weather(daily_weather_data)
 
 for (i in 11:18) {
@@ -20,11 +22,14 @@ for (i in 11:18) {
   typhoid_cases <- count_typhoid_cases.monthly(typhoid_df)
   abd_cases <- count_abd_cases.monthly(abd_df)
 
-  typhoid_cases_year <- typhoid_cases %>%
+  typhoid_district_cases <- count_to_district.monthly(typhoid_cases)
+  abd_district_cases <- count_to_district.monthly(abd_cases)
+
+  typhoid_cases_year <- typhoid_district_cases %>%
     mutate(Year = as.integer(paste0("20", i))) %>%
     select(Year, Month, everything())
 
-  abd_cases_year <- abd_cases %>%
+  abd_cases_year <- abd_district_cases %>%
     mutate(Year = as.integer(paste0("20", i))) %>%
     select(Year, Month, everything())
 
@@ -56,20 +61,27 @@ all_abd <- bind_rows(
 
 ## typhoid_final <- preprocess_df2(base_df, all_typhoid, "typhoid", rand_coords_df)
 ## abd_final <- preprocess_df2(base_df, all_abd, "abd", rand_coords_df)
-typhoid_final <- preprocess_df2.monthly(
+typhoid_final <- preprocess_df2.district(
   base_df,
   all_typhoid,
   "typhoid",
   rand_coords_df,
-  monthly_weather_df
+  monthly_weather_df,
+  area_sqkm_df
 )
-abd_final <- preprocess_df2.monthly(
+abd_final <- preprocess_df2.district(
   base_df,
   all_abd,
   "abd",
   rand_coords_df,
-  monthly_weather_df
+  monthly_weather_df,
+  area_sqkm_df
 )
 
-write.xlsx(typhoid_final, "Typhoid Preprocessed Stage 2 Monthly (2011-2018).xlsx")
-write.xlsx(abd_final, "ABD Preprocessed Stage 2 Monthly (2011-2018).xlsx")
+typhoid_final_morbidity <- cases_to_morbidity(typhoid_final, 50000)
+abd_final_morbidity <- cases_to_morbidity(typhoid_final, 50000)
+
+write.xlsx(typhoid_final, "Typhoid Preprocessed Stage 2 District Monthly (2011-2018).xlsx")
+write.xlsx(abd_final, "ABD Preprocessed Stage 2 District Monthly (2011-2018).xlsx")
+write.xlsx(typhoid_final_morbidity, "Typhoid Preprocessed Stage 2 District Monthly Morbidity per 50k (2011-2018).xlsx")
+write.xlsx(abd_final_morbidity, "ABD Preprocessed Stage 2 District Monthly Morbidity per 50k (2011-2018).xlsx")

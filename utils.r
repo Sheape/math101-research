@@ -53,6 +53,13 @@ cleanup_df <- function(df, is_monthly = FALSE) {
   return(result_df)
 }
 
+get_area_sqkm.district <- function() {
+  area_sqkm <- geodata %>%
+    group_by(DISTRICT) %>%
+    summarise(AREA_SQKM = sum(AREA_SQKM))
+  return(area_sqkm)
+}
+
 d2m_weather <- function(daily_weather_df) {
   result_df <- daily_weather_df %>%
     group_by(YEAR, MONTH) %>%
@@ -68,28 +75,61 @@ d2m_weather <- function(daily_weather_df) {
 }
 
 calc_population_density <- function(population, brgy_name) {
-  index <- match(
-    brgy_name,
-    geodata$ADM4_EN
-  )
-
+  index <- brgy_match(brgy_name)
   area <- geodata[index, "AREA_SQKM"]
 
   return(population / area)
 }
 
-calc_x_y <- function(brgy_name, n_points) {
-  index <- match(
-    brgy_name,
-    geodata$ADM4_EN
-  )
+calc_population_density.district <- function(population, district, district_df) {
+  index <- match(district, district_df$DISTRICT)
+  area <- district_df[index, "AREA_SQKM"]
 
-  wkt_str <- geodata[index, "WKT"]
-  multi_polygon <- st_as_sfc(wkt_str)
-  sampling_region <- as.owin(multi_polygon)
+  return(as.numeric(population / area))
+}
+
+calc_x_y.any <- function(spat_obj, n_points) {
+  sampling_region <- as.owin(spat_obj)
   set.seed(112524)
   random_points <- runifpoint(n_points, win = sampling_region)
   return(random_points)
+}
+
+calc_x_y <- function(brgy_name, n_points) {
+  index <- brgy_match(brgy_name)
+
+  wkt_str <- geodata[index, "WKT"]
+  multi_polygon <- st_as_sfc(wkt_str)
+  random_points <- calc_x_y.any(multi_polygon, n_points)
+  return(random_points)
+}
+
+calc_morbidity_rate <- function(cases, population, per_pop = 10000) {
+  return((cases / population) * per_pop)
+}
+
+brgy_match <- function(brgy) {
+  index <- match(
+    brgy,
+    geodata$ADM4_EN
+  )
+
+  return(index)
+}
+
+district_match <- function(district) {
+  index <- match(
+    district,
+    geodata$DISTRICT
+  )
+
+  return(index)
+}
+
+get_district <- function(brgy) {
+  index <- brgy_match(brgy)
+  district <- geodata[index, "DISTRICT"]
+  return(district)
 }
 
 generate_rand_coords <- function(base_df, is_monthly = FALSE) {
@@ -110,4 +150,26 @@ generate_rand_coords <- function(base_df, is_monthly = FALSE) {
     unnest(c(X, Y)) %>%
     select(-RandCoords, -Brgy)
   return(rand_coords)
+}
+
+generate_rand_coords.district <- function(is_monthly = TRUE) {
+  if (is_monthly) {
+    n_points <- 12 * 8
+  } else {
+    n_points <- 52 * 8
+  }
+
+  rand_points.district <- geodata %>%
+    select(Brgy = ADM4_EN, District = DISTRICT, everything()) %>%
+    group_by(District) %>%
+    summarise(MergedGeometry = st_union(st_as_sfc(WKT))) %>%
+    mutate(RandCoords = map(MergedGeometry, ~ calc_x_y.any(.x, n_points))) %>%
+    mutate(
+      X = map(RandCoords, ~ as.data.frame(.) %>% pull(x)),
+      Y = map(RandCoords, ~ as.data.frame(.) %>% pull(y))
+    ) %>%
+    unnest(c(X, Y)) %>%
+    select(X, Y)
+
+  return(rand_points.district)
 }

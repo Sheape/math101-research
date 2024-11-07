@@ -7,6 +7,7 @@ library(purrr)
 library(zoo)
 
 source("labels.r")
+source("utils.r")
 
 match_cases <- function(df) {
   df$Brgy <- population_data$BRGY[match(df$Brgy, toupper(population_data$BRGY))]
@@ -87,6 +88,16 @@ count_abd_cases.monthly <- function(abd_df) {
   return(result_df)
 }
 
+count_to_district.monthly <- function(cases_df) {
+  result_df <- cases_df %>%
+    rowwise() %>%
+    mutate(District = get_district(Brgy)) %>%
+    group_by(District, Month) %>%
+    summarise(Cases = sum(Cases)) %>%
+    ungroup()
+  return(result_df)
+}
+
 approx_population <- function(population_data) {
   population_df <- population_data %>%
     select(Brgy = "BRGY", X2010:X2022) %>%
@@ -123,6 +134,23 @@ approx_population.monthly <- function(population_data) {
     mutate(Population = ceiling(Population)) %>%
     ungroup()
   return(population_df)
+}
+
+cases_to_district <- function(cases_df) {
+  result_df <- cases_df %>%
+    mutate(District = get_district(Brgy)) %>%
+    group_by(District, Month, Cases) %>%
+    ungroup()
+  return(result_df)
+}
+
+population.district <- function(approx_df) {
+  result_df <- approx_df %>%
+    rowwise() %>%
+    mutate(District = get_district(Brgy)) %>%
+    group_by(District, Year, Month) %>%
+    summarise(Population = sum(Population))
+  return(result_df)
 }
 
 
@@ -200,5 +228,51 @@ preprocess_df2.monthly <- function(
       PopulationDensity
     ) %>%
     arrange(Year, Month)
+  return(result_df)
+}
+
+preprocess_df2.district <- function(
+    base_df,
+    cases_df,
+    disease_type,
+    rand_coords,
+    weather_data,
+    area_sqkm_df) {
+  result_df <- base_df %>%
+    mutate(DiseaseType = disease_type) %>%
+    filter(Year <= 2018 & Year >= 2011) %>%
+    ungroup() %>%
+    left_join(cases_df, by = c("District" = "District", "Year" = "Year", "Month" = "Month")) %>%
+    mutate(Cases = replace_na(Cases, 0)) %>%
+    group_by(District) %>%
+    left_join(weather_data, by = c("Year" = "YEAR", "Month" = "MONTH")) %>%
+    ungroup() %>%
+    mutate(Humidity = RH) %>%
+    bind_cols(rand_coords) %>%
+    rowwise() %>%
+    mutate(
+      PopulationDensity = calc_population_density.district(Population, District, area_sqkm_df)
+    ) %>%
+    ungroup() %>%
+    select(
+      Year,
+      Month,
+      DiseaseType,
+      X,
+      Y,
+      Cases,
+      Rainfall,
+      TMean,
+      Humidity,
+      WindSpeed,
+      Population,
+      PopulationDensity
+    )
+  return(result_df)
+}
+
+cases_to_morbidity <- function(df, per_pop = 100000) {
+  result_df <- df %>%
+    mutate(MorbidityRate = calc_morbidity_rate(Cases, Population, per_pop))
   return(result_df)
 }
