@@ -125,15 +125,99 @@ approx_population.monthly <- function(population_data) {
       names_to = "Year",
       values_to = "Population"
     ) %>%
-    mutate(Year = as.numeric(gsub("X", "", Year)), Month = 1) %>%
+    mutate(Year = as.numeric(gsub("X", "", Year))) %>%
+    mutate(Month = if_else(Year == 2010, 5, 4)) %>%
     select(Year, Month, Population, Brgy) %>%
     group_by(Brgy) %>%
     filter(Brgy != "" & Brgy != " ") %>%
     complete(Year = 2010:2022, Month = 1:12) %>%
-    mutate(Population = zoo::na.approx(Population, rule = 2, na.rm = FALSE)) %>%
+    mutate(Population = if_else(
+      is.na(Population),
+      estimate_population(Brgy, ((Year - 2010) * 12) + Month),
+      Population
+    )) %>%
     mutate(Population = ceiling(Population)) %>%
     ungroup()
   return(population_df)
+}
+
+# Currently only works with monthly
+# TODO: Add support for weekly
+estimate_population <- function(brgy, t, is_monthly = FALSE) {
+  # Ensure brgy and t are vectors of the same length
+  if (length(brgy) != length(t)) {
+    stop("brgy and t must be vectors of the same length")
+  }
+
+  # Prepare population data by converting columns to integer
+  population_data.local <- population_data %>%
+    mutate(
+      X2010 = as.integer(X2010),
+      X2015 = as.integer(X2015),
+      X2020 = as.integer(X2020),
+      X2021 = as.integer(X2021),
+      X2022 = as.integer(X2022)
+    )
+  if (is_monthly) {
+
+  }
+
+  # Vectorized function to estimate population for one brgy and one t
+  estimate_for_one <- function(brgy_single, t_single) {
+    if (is.na(brgy_single)) {
+      return(NA)
+    }
+
+    index <- match(brgy_single, population_data.local$BRGY)
+
+    if (is.na(index)) {
+      return(NA)
+    }
+
+    pop_i <- pop_f <- t_i <- t_f <- NA
+
+    if (t_single <= 5) {
+      return(population_data.local[index, "X2010"])
+    } else if (t_single == 64) {
+      return(population_data.local[index, "X2015"])
+    } else if (t_single == 124) {
+      return(population_data.local[index, "X2020"])
+    } else if (t_single == 136) {
+      return(population_data.local[index, "X2021"])
+    } else if (t_single == 144) {
+      return(population_data.local[index, "X2022"])
+    } else if (t_single > 5 && t_single < 64) {
+      t_i <- 5
+      t_f <- 64
+      pop_i <- population_data.local[index, "X2010"]
+      pop_f <- population_data.local[index, "X2015"]
+    } else if (t_single > 64 && t_single < 124) {
+      t_i <- 64
+      t_f <- 124
+      pop_i <- population_data.local[index, "X2015"]
+      pop_f <- population_data.local[index, "X2020"]
+    } else if (t_single > 124 && t_single < 136) {
+      t_i <- 124
+      t_f <- 136
+      pop_i <- population_data.local[index, "X2020"]
+      pop_f <- population_data.local[index, "X2021"]
+    } else if (t_single > 136) {
+      t_i <- 136
+      t_f <- 148
+      pop_i <- population_data.local[index, "X2021"]
+      pop_f <- population_data.local[index, "X2022"]
+    }
+
+    if (!is.na(pop_i) && !is.na(pop_f)) {
+      growth_rate <- exp(log(pop_f / pop_i) / (t_f - t_i))
+      return(pop_i * (growth_rate^(t_single - t_i)))
+    } else {
+      return(NA)
+    }
+  }
+
+  # Apply the function over vectors
+  mapply(estimate_for_one, brgy, t)
 }
 
 cases_to_district <- function(cases_df) {

@@ -79,7 +79,7 @@ abd_final <- preprocess_df2.district(
 )
 
 typhoid_final_morbidity <- cases_to_morbidity(typhoid_final, 50000)
-abd_final_morbidity <- cases_to_morbidity(typhoid_final, 50000)
+abd_final_morbidity <- cases_to_morbidity(abd_final, 50000)
 
 write.xlsx(typhoid_final, "Typhoid Preprocessed Stage 2 District Monthly (2011-2018).xlsx")
 write.xlsx(abd_final, "ABD Preprocessed Stage 2 District Monthly (2011-2018).xlsx")
