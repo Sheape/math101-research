@@ -143,7 +143,7 @@ approx_population.monthly <- function(population_data) {
 
 # Currently only works with monthly
 # TODO: Add support for weekly
-estimate_population <- function(brgy, t, is_monthly = FALSE) {
+estimate_population <- function(brgy, t) {
   # Ensure brgy and t are vectors of the same length
   if (length(brgy) != length(t)) {
     stop("brgy and t must be vectors of the same length")
@@ -158,9 +158,6 @@ estimate_population <- function(brgy, t, is_monthly = FALSE) {
       X2021 = as.integer(X2021),
       X2022 = as.integer(X2022)
     )
-  if (is_monthly) {
-
-  }
 
   # Vectorized function to estimate population for one brgy and one t
   estimate_for_one <- function(brgy_single, t_single) {
@@ -299,6 +296,7 @@ preprocess_df2.monthly <- function(
     ) %>%
     ungroup() %>%
     select(
+      Brgy,
       Year,
       Month,
       DiseaseType,
@@ -309,6 +307,7 @@ preprocess_df2.monthly <- function(
       TMean,
       Humidity,
       WindSpeed,
+      Population,
       PopulationDensity
     ) %>%
     arrange(Year, Month)
@@ -339,6 +338,7 @@ preprocess_df2.district <- function(
     ) %>%
     ungroup() %>%
     select(
+      District,
       Year,
       Month,
       DiseaseType,
